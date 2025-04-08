@@ -1,0 +1,28 @@
+﻿version: '3.8'
+
+services:
+  crud-webapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80" 
+    container_name: web_api_bookstore
+    depends_on:
+      - db
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=bookstore;Username=postgres;Password=1234
+
+  db:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: bookstore
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

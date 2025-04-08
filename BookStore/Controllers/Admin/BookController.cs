@@ -59,7 +59,7 @@ public partial class AdminController:ControllerBase
         
     }
 
-    [HttpDelete("DeleteBook")]
+    [HttpPatch("DeleteBook")]
     public async Task<ActionResult> DeleteBook(int id)
     {
         try

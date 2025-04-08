@@ -1,0 +1,23 @@
+# This is a generated file. Not intended for manual editing.
+version: "3.8"
+services:
+  crud-webapi:
+    build:
+      context: "C:\\asp\\BookStore\\BookStore"
+      dockerfile: "Dockerfile"
+      target: "base"
+    command: []
+    entrypoint:
+    - "dotnet"
+    - "/app/bin/Debug/net9.0/BookStore.dll"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      DOTNET_USE_POLLING_FILE_WATCHER: "true"
+    image: "bookstore:dev"
+    ports: []
+    volumes:
+    - "C:\\asp\\BookStore\\BookStore:/app:rw"
+    - "C:\\asp\\BookStore:/src:rw"
+    - "C:\\Users\\user\\AppData\\Roaming\\Microsoft\\UserSecrets:/home/app/.microsoft/usersecrets"
+    - "C:\\Users\\user\\.nuget\\packages:/home/app/.nuget/packages"
+    working_dir: "/app"
