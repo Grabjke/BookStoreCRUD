@@ -32,41 +32,57 @@ public class EFGenre:IGenreRepository
 
     public async Task UpdateGenreAsync(int id, string title, IEnumerable<int>? bookIds)
     {
+        
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Genre name cannot be empty");
 
-        // Проверяем существование жанра
-        var genreExists = await _context.Genre.AnyAsync(g => g.Id == id);
-        if (!genreExists)
-            throw new KeyNotFoundException($"Genre with ID {id} not found");
+        using var transaction = await _context.Database.BeginTransactionAsync();
 
-        // Обновляем название жанра
-        await _context.Genre
-            .Where(g => g.Id == id)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(g => g.Title, title));
-
-        // Обновляем книги жанра 
-        if (bookIds != null && bookIds.Any())
+        try
         {
-            // Загружаем жанр с текущими книгами
-            var genre = await _context.Genre
-                .Include(g => g.Books)
-                .FirstAsync(g => g.Id == id);
+            // Проверяем существование жанра
+            var genreExists = await _context.Genre.AnyAsync(g => g.Id == id);
+            if (!genreExists)
+                throw new KeyNotFoundException($"Genre with ID {id} not found");
 
-            // Получаем новые книги для жанра
-            var newBooks = await _context.Books
-                .Where(b => bookIds.Contains(b.Id))
-                .ToListAsync();
+            // Обновляем название жанра
+            await _context.Genre
+                .Where(g => g.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(g => g.Title, title));
 
-            // Обновляем коллекцию книг
-            genre.Books?.Clear();
-            foreach (var book in newBooks)
+            // Обновляем книги жанра 
+            if (bookIds != null && bookIds.Any())
             {
-                genre.Books?.Add(book);
-            }
+                // Загружаем жанр с текущими книгами
+                var genre = await _context.Genre
+                    .Include(g => g.Books)
+                    .FirstAsync(g => g.Id == id);
 
-            await _context.SaveChangesAsync();
+                // Получаем новые книги для жанра
+                var newBooks = await _context.Books
+                    .Where(b => bookIds.Contains(b.Id))
+                    .ToListAsync();
+
+                // Обновляем коллекцию книг
+                genre.Books?.Clear();
+                foreach (var book in newBooks)
+                {
+                    genre.Books?.Add(book);
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            await  transaction.CommitAsync();
+
         }
+        catch (Exception e)
+        {
+           await transaction.RollbackAsync();
+           throw;
+        }
+        
+
+       
     }
 }

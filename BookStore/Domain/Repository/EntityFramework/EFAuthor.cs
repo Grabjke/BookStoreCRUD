@@ -29,38 +29,52 @@ public class EFAuthor:IAuthorRepository
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty");
 
-        //  Обновляем имя автора
-        var updatedRows = await _context.Authors
-            .Where(x => x.Id == id)
-            .ExecuteUpdateAsync(x => x.SetProperty(a => a.Name, name));
-    
-        if (updatedRows == 0)
-            throw new KeyNotFoundException($"Author with ID {id} not found");
-
-        // Обновляем книги автора
-        if (booksIds != null && booksIds.Any())
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            var author = await _context.Authors
-                .Include(x => x.Books)
-                .FirstOrDefaultAsync(a => a.Id == id);
+            //  Обновляем имя автора
+            var updatedRows = await _context.Authors
+                .Where(x => x.Id == id)
+                .ExecuteUpdateAsync(x => x.SetProperty(a => a.Name, name));
+    
+            if (updatedRows == 0)
+                throw new KeyNotFoundException($"Author with ID {id} not found");
+
+            // Обновляем книги автора
+            if (booksIds != null && booksIds.Any())
+            {
+                var author = await _context.Authors
+                    .Include(x => x.Books)
+                    .FirstOrDefaultAsync(a => a.Id == id);
         
-            if (author == null)
-                return;
+                if (author == null)
+                    return;
 
-            // Очищаем текущие книги
-            author.Books.Clear();
+                
+                author.Books.Clear();
 
-            // Добавляем новые книги
-            var booksToAdd = await _context.Books
-                .Where(x => booksIds.Contains(x.Id))
-                .ToListAsync();
+                
+                var booksToAdd = await _context.Books
+                    .Where(x => booksIds.Contains(x.Id))
+                    .ToListAsync();
 
-            foreach (var book in booksToAdd)
-                author.Books.Add(book);
+                foreach (var book in booksToAdd)
+                    author.Books.Add(book);
             
 
-            await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
+            }
+
+            await transaction.CommitAsync();
+
         }
+        catch 
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+
+        
     }
 
     public async Task CreateAuthorAsync(Author author)

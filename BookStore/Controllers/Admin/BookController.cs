@@ -5,6 +5,7 @@ using BookStore.Domain.Entities.Enums;
 using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 
 namespace BookStore.Controllers.Admin;
@@ -18,16 +19,18 @@ public partial class AdminController:ControllerBase
     private readonly IValidator<Genre> _genreValidator;
     private readonly IValidator<Author> _authorValidator;
     private readonly ILogger<AdminController> _logger;
+    
 
 
     public AdminController(DataManager dataManager, IValidator<Book> bookValidator, ILogger<AdminController> logger,
-        IValidator<Author> authorValidator,IValidator<Genre> genreValidator)
+        IValidator<Author> authorValidator,IValidator<Genre> genreValidator,IMemoryCache cache)
     {
         _dataManager = dataManager;
         _bookValidator = bookValidator;
         _genreValidator = genreValidator;
         _authorValidator = authorValidator;
         _logger = logger;
+        
     }
 
     [HttpPost("CreateBook")]

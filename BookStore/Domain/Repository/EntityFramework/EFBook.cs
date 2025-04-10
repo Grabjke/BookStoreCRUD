@@ -27,18 +27,14 @@ namespace BookStore.Domain.Repository.EntityFramework
 
         public async Task DeleteBookByIdAsync(int id)
         {
-         var book=  await _context.Books.FindAsync(id);
-
-            if (book != null)
+            var book = await _context.Books.FindAsync(id);
+            if (book == null)
             {
-                book.IsDeleted = true;
-                await _context.SaveChangesAsync();
-            }
-            else
-            {
-                throw new Exception("Книга не найдена");
+                throw new KeyNotFoundException($"Книга с ID {id} не найдена");
             }
 
+            book.IsDeleted = true;
+            await _context.SaveChangesAsync();
         }
 
         public async Task<IEnumerable<Book>> GetAllBooksByQueryAsync(BookQuery query)
@@ -102,58 +98,70 @@ namespace BookStore.Domain.Repository.EntityFramework
             if (string.IsNullOrWhiteSpace(title))
                 throw new ArgumentException("Title cannot be empty");
 
-           
-            var updatedRows = await _context.Books
-                .Where(b => b.Id == id)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(b => b.Title, title)
-                    .SetProperty(b => b.Description, description)
-                    .SetProperty(b => b.Price, price)
-                    .SetProperty(b => b.Pages, pages)
-                    .SetProperty(b => b.Availability, availability)
-                    .SetProperty(b => b.IsDeleted, isDeleted));
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var updatedRows = await _context.Books
+                    .Where(b => b.Id == id)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(b => b.Title, title)
+                        .SetProperty(b => b.Description, description)
+                        .SetProperty(b => b.Price, price)
+                        .SetProperty(b => b.Pages, pages)
+                        .SetProperty(b => b.Availability, availability)
+                        .SetProperty(b => b.IsDeleted, isDeleted));
 
-            if (updatedRows == 0)
-                throw new KeyNotFoundException($"Book with ID {id} not found");
+                if (updatedRows == 0)
+                    throw new KeyNotFoundException($"Book with ID {id} not found");
 
             
-            if (authorIds != null || genreIds != null)
-            {
-                var book = await _context.Books
-                    .AsSplitQuery()
-                    .Include(b => b.Authors)
-                    .Include(b => b.Genres)
-                    .FirstOrDefaultAsync(b => b.Id == id);
+                if (authorIds != null || genreIds != null)
+                {
+                    var book = await _context.Books
+                        .AsSplitQuery()
+                        .Include(b => b.Authors)
+                        .Include(b => b.Genres)
+                        .FirstOrDefaultAsync(b => b.Id == id);
 
-                if (book == null)
-                    return;
+                    if (book == null)
+                        return;
 
               
-                if (authorIds != null)
-                {
-                    book.Authors?.Clear();
-                    var authorsToAdd = await _context.Authors
-                        .Where(a => authorIds.Contains(a.Id))
-                        .ToListAsync();
+                    if (authorIds != null)
+                    {
+                        book.Authors?.Clear();
+                        var authorsToAdd = await _context.Authors
+                            .Where(a => authorIds.Contains(a.Id))
+                            .ToListAsync();
             
-                    foreach (var author in authorsToAdd)
-                        book.Authors?.Add(author);
-                }
+                        foreach (var author in authorsToAdd)
+                            book.Authors?.Add(author);
+                    }
 
                 
-                if (genreIds != null)
-                {
-                    book.Genres?.Clear();
-                    var genresToAdd = await _context.Genre
-                        .Where(g => genreIds.Contains(g.Id))
-                        .ToListAsync();
+                    if (genreIds != null)
+                    {
+                        book.Genres?.Clear();
+                        var genresToAdd = await _context.Genre
+                            .Where(g => genreIds.Contains(g.Id))
+                            .ToListAsync();
             
-                    foreach (var genre in genresToAdd)
-                        book.Genres?.Add(genre);
-                }
+                        foreach (var genre in genresToAdd)
+                            book.Genres?.Add(genre);
+                    }
 
-                await _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync();
+                }
+                
+                await transaction.CommitAsync();
+
             }
+            catch (Exception e)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+            
         }
         
         public async Task<IEnumerable<Book>> GetAllBooksAsync()
